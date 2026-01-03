@@ -1,0 +1,130 @@
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { ViewMode, Transaction, UploadRecord } from './types';
+import { parseCSV, getFinancialSummary } from './utils';
+import Sidebar from './components/Sidebar';
+import Dashboard from './components/Dashboard';
+import TransactionList from './components/TransactionList';
+import UploadSection from './components/UploadSection';
+import UploadHistory from './components/UploadHistory';
+import GeminiAssistant from './components/GeminiAssistant';
+import MobileNav from './components/MobileNav';
+import ReportsView from './components/ReportsView';
+
+const App: React.FC = () => {
+  const [view, setView] = useState<ViewMode>(ViewMode.DASHBOARD);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [uploads, setUploads] = useState<UploadRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastUploadTime, setLastUploadTime] = useState<string | null>(null);
+
+  const handleFileUpload = (content: string, filename: string) => {
+    setIsLoading(true);
+    setTimeout(() => {
+      const parsed = parseCSV(content);
+      const now = new Date();
+      const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+      
+      setTransactions(prev => [...prev, ...parsed]);
+      
+      const newRecord: UploadRecord = {
+        id: Math.random().toString(36).substr(2, 9),
+        filename: filename,
+        timestamp: timestamp,
+        transactionCount: parsed.length
+      };
+      
+      setUploads(prev => [newRecord, ...prev]);
+      setLastUploadTime(now.toLocaleTimeString());
+      setIsLoading(false);
+      setView(ViewMode.DASHBOARD);
+    }, 800);
+  };
+
+  const clearData = () => {
+    if (window.confirm("Deseja realmente apagar todos os dados e o histórico?")) {
+      setTransactions([]);
+      setUploads([]);
+      setLastUploadTime(null);
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-['Inter']">
+      {/* Sidebar (Desktop only) */}
+      <Sidebar activeView={view} setView={setView} />
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        {/* Header - Fixed Height */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shrink-0 sticky top-0 z-40">
+          <div className="flex items-center gap-3">
+            {/* Small logo for mobile */}
+            <div className="md:hidden w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <i className="fa-solid fa-vault text-white text-sm"></i>
+            </div>
+            <h1 className="text-base md:text-xl font-bold text-slate-800 truncate">
+              {view === ViewMode.DASHBOARD && "Dashboard"}
+              {view === ViewMode.TRANSACTIONS && "Extrato"}
+              {view === ViewMode.UPLOAD && "Importar"}
+              {view === ViewMode.HISTORY && "Histórico"}
+              {view === ViewMode.REPORTS && "Relatórios"}
+            </h1>
+          </div>
+          
+          <div className="flex items-center gap-2 md:gap-3">
+            {lastUploadTime && (
+              <span className="hidden sm:flex text-[10px] md:text-xs font-medium bg-green-100 text-green-700 px-2 md:px-2.5 py-0.5 rounded-full items-center gap-1">
+                <i className="fa-solid fa-check"></i>
+                Atualizado
+              </span>
+            )}
+            <button 
+              onClick={clearData}
+              className="text-slate-400 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-slate-100"
+              title="Limpar tudo"
+            >
+              <i className="fa-solid fa-trash-can text-sm md:text-base"></i>
+            </button>
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xs md:text-sm shadow-sm">
+              JD
+            </div>
+          </div>
+        </header>
+
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 pb-24 md:pb-8">
+          <div className="max-w-7xl mx-auto">
+            {view === ViewMode.DASHBOARD && (
+              <Dashboard transactions={transactions} />
+            )}
+            
+            {view === ViewMode.TRANSACTIONS && (
+              <TransactionList transactions={transactions} />
+            )}
+
+            {view === ViewMode.UPLOAD && (
+              <UploadSection onUpload={handleFileUpload} isLoading={isLoading} />
+            )}
+
+            {view === ViewMode.HISTORY && (
+              <UploadHistory uploads={uploads} />
+            )}
+
+            {view === ViewMode.REPORTS && (
+              <ReportsView transactions={transactions} />
+            )}
+          </div>
+        </div>
+
+        {/* Gemini Intelligence Widget */}
+        {transactions.length > 0 && <GeminiAssistant transactions={transactions} />}
+        
+        {/* Mobile Navigation Bar */}
+        <MobileNav activeView={view} setView={setView} />
+      </main>
+    </div>
+  );
+};
+
+export default App;
