@@ -21,7 +21,8 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
 
     await sql`
       INSERT INTO uploads (id, filename, timestamp, transaction_count)
-      VALUES (${uploadId}, ${filename}, ${timestamp}, ${transactions.length});
+      VALUES (${uploadId}, ${filename}, ${timestamp}, ${transactions.length})
+      ON CONFLICT (id) DO NOTHING;
     `;
 
     const normalized = transactions.map((transaction: Record<string, unknown>) => {
@@ -66,6 +67,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
                 ${item.amount},
                 ${item.category}
               )
+              ON CONFLICT (id) DO NOTHING
             `
           )
         );
