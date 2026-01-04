@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ViewMode, Transaction, UploadRecord } from './types';
 import { parseCSV } from './utils';
 import { fetchData, uploadData, clearData as clearServerData } from './api';
@@ -13,12 +14,26 @@ import MobileNav from './components/MobileNav';
 import ReportsView from './components/ReportsView';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewMode>(ViewMode.DASHBOARD);
+  const location = useLocation();
+  const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [uploads, setUploads] = useState<UploadRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUploadTime, setLastUploadTime] = useState<string | null>(null);
   const [dbUnavailable, setDbUnavailable] = useState(false);
+
+  // Determine current view from location
+  const getCurrentView = (): ViewMode => {
+    const path = location.pathname;
+    if (path === '/dashboard' || path === '/') return ViewMode.DASHBOARD;
+    if (path === '/transactions') return ViewMode.TRANSACTIONS;
+    if (path === '/upload') return ViewMode.UPLOAD;
+    if (path === '/history') return ViewMode.HISTORY;
+    if (path === '/reports') return ViewMode.REPORTS;
+    return ViewMode.DASHBOARD;
+  };
+
+  const view = getCurrentView();
 
   useEffect(() => {
     let isMounted = true;
@@ -74,7 +89,7 @@ const App: React.FC = () => {
       setTransactions(prev => [...prev, ...allTransactions]);
       setUploads(prev => [...newUploads, ...prev]);
       setLastUploadTime(new Date().toLocaleTimeString());
-      setView(ViewMode.DASHBOARD);
+      navigate('/dashboard');
     } catch (error) {
       console.error('Failed to save upload.', error);
       alert('Erro ao salvar os dados. Tente novamente.');
@@ -103,7 +118,7 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-['Inter']">
       {/* Sidebar (Desktop only) */}
-      <Sidebar activeView={view} setView={setView} />
+      <Sidebar activeView={view} />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
@@ -146,25 +161,14 @@ const App: React.FC = () => {
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 pb-24 md:pb-8">
           <div className="max-w-7xl mx-auto">
-            {view === ViewMode.DASHBOARD && (
-              <Dashboard transactions={transactions} />
-            )}
-            
-            {view === ViewMode.TRANSACTIONS && (
-              <TransactionList transactions={transactions} />
-            )}
-
-            {view === ViewMode.UPLOAD && (
-              <UploadSection onUpload={handleFileUpload} isLoading={isLoading} />
-            )}
-
-            {view === ViewMode.HISTORY && (
-              <UploadHistory uploads={uploads} />
-            )}
-
-            {view === ViewMode.REPORTS && (
-              <ReportsView transactions={transactions} />
-            )}
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard transactions={transactions} />} />
+              <Route path="/transactions" element={<TransactionList transactions={transactions} />} />
+              <Route path="/upload" element={<UploadSection onUpload={handleFileUpload} isLoading={isLoading} />} />
+              <Route path="/history" element={<UploadHistory uploads={uploads} />} />
+              <Route path="/reports" element={<ReportsView transactions={transactions} />} />
+            </Routes>
           </div>
         </div>
 
@@ -172,7 +176,7 @@ const App: React.FC = () => {
         {transactions.length > 0 && <GeminiAssistant transactions={transactions} />}
         
         {/* Mobile Navigation Bar */}
-        <MobileNav activeView={view} setView={setView} />
+        <MobileNav activeView={view} />
       </main>
     </div>
   );
