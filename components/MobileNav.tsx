@@ -11,8 +11,8 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeView, setView }) => {
   const menuItems = [
     { id: ViewMode.DASHBOARD, label: 'Início', icon: 'fa-house' },
     { id: ViewMode.TRANSACTIONS, label: 'Extrato', icon: 'fa-list-ul' },
-    { id: ViewMode.UPLOAD, label: 'Subir', icon: 'fa-circle-plus' },
     { id: ViewMode.REPORTS, label: 'Docs', icon: 'fa-file-invoice-dollar' },
+    { id: ViewMode.UPLOAD, label: 'Subir', icon: 'fa-circle-plus' },
     { id: ViewMode.HISTORY, label: 'Logs', icon: 'fa-clock-rotate-left' },
   ];
 

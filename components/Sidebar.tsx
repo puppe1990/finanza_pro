@@ -11,9 +11,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setView }) => {
   const menuItems = [
     { id: ViewMode.DASHBOARD, label: 'Dashboard', icon: 'fa-chart-line' },
     { id: ViewMode.TRANSACTIONS, label: 'Transações', icon: 'fa-list-ul' },
+    { id: ViewMode.REPORTS, label: 'Relatórios', icon: 'fa-file-invoice-dollar' },
     { id: ViewMode.UPLOAD, label: 'Importar', icon: 'fa-file-import' },
     { id: ViewMode.HISTORY, label: 'Histórico', icon: 'fa-clock-rotate-left' },
-    { id: ViewMode.REPORTS, label: 'Relatórios', icon: 'fa-file-invoice-dollar' },
   ];
 
   return (
