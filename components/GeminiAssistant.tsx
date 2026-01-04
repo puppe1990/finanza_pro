@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { getFinancialInsights } from '../geminiService';
+import { getFinancialInsights, isGeminiConfigured } from '../geminiService';
 import { Transaction } from '../types';
 
 interface GeminiAssistantProps {
@@ -11,8 +11,15 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ transactions }) => {
   const [insight, setInsight] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const geminiReady = isGeminiConfigured();
 
   const fetchInsights = async () => {
+    if (!geminiReady) {
+      setInsight("Configure o GEMINI_API_KEY no arquivo .env.local para ativar o consultor IA.");
+      setIsOpen(true);
+      return;
+    }
+
     setIsLoading(true);
     setIsOpen(true);
     const text = await getFinancialInsights(transactions);
