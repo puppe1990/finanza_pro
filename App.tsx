@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ViewMode, Transaction, UploadRecord } from './types';
-import { parseCSV, getFinancialSummary } from './utils';
+import { parseCSV } from './utils';
+import { fetchData, uploadData, clearData as clearServerData } from './api';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import TransactionList from './components/TransactionList';
@@ -17,35 +18,78 @@ const App: React.FC = () => {
   const [uploads, setUploads] = useState<UploadRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUploadTime, setLastUploadTime] = useState<string | null>(null);
+  const [dbUnavailable, setDbUnavailable] = useState(false);
 
-  const handleFileUpload = (content: string, filename: string) => {
+  useEffect(() => {
+    let isMounted = true;
+    const load = async () => {
+      try {
+        const data = await fetchData();
+        if (!isMounted) return;
+        setTransactions(data.transactions || []);
+        setUploads(data.uploads || []);
+        setDbUnavailable(false);
+      } catch (error) {
+        console.warn('Database unavailable, falling back to local state.', error);
+        if (isMounted) setDbUnavailable(true);
+      }
+    };
+
+    load();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleFileUpload = async (content: string, filename: string) => {
     setIsLoading(true);
-    setTimeout(() => {
-      const parsed = parseCSV(content);
-      const now = new Date();
-      const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-      
+    const parsed = parseCSV(content);
+    const now = new Date();
+    const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+
+    const newRecord: UploadRecord = {
+      id: Math.random().toString(36).substr(2, 9),
+      filename: filename,
+      timestamp: timestamp,
+      transactionCount: parsed.length,
+    };
+
+    try {
+      if (!dbUnavailable) {
+        await uploadData({
+          uploadId: newRecord.id,
+          filename: newRecord.filename,
+          timestamp: newRecord.timestamp,
+          transactions: parsed,
+        });
+      }
+
       setTransactions(prev => [...prev, ...parsed]);
-      
-      const newRecord: UploadRecord = {
-        id: Math.random().toString(36).substr(2, 9),
-        filename: filename,
-        timestamp: timestamp,
-        transactionCount: parsed.length
-      };
-      
       setUploads(prev => [newRecord, ...prev]);
       setLastUploadTime(now.toLocaleTimeString());
-      setIsLoading(false);
       setView(ViewMode.DASHBOARD);
-    }, 800);
+    } catch (error) {
+      console.error('Failed to save upload.', error);
+      alert('Erro ao salvar os dados. Tente novamente.');
+      setDbUnavailable(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const clearData = () => {
+  const clearData = async () => {
     if (window.confirm("Deseja realmente apagar todos os dados e o histórico?")) {
-      setTransactions([]);
-      setUploads([]);
-      setLastUploadTime(null);
+      try {
+        if (!dbUnavailable) {
+          await clearServerData();
+        }
+        setTransactions([]);
+        setUploads([]);
+        setLastUploadTime(null);
+      } catch (error) {
+        console.error('Failed to clear data.', error);
+        alert('Erro ao apagar os dados. Tente novamente.');
+      }
     }
   };
 
