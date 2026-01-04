@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   Cell
@@ -15,15 +15,28 @@ interface ReportsViewProps {
 }
 
 const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
+  const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [expandedDesc, setExpandedDesc] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    transactions.forEach(t => {
+      const year = t.date.split('/')[2];
+      if (year && year.length === 4) years.add(year);
+    });
+    return Array.from(years).sort((a, b) => Number(b) - Number(a));
+  }, [transactions]);
+
   const availableMonths = useMemo(() => {
     const months = new Set<string>();
     transactions.forEach(t => {
-      const monthYear = t.date.slice(3);
+      const [day, month, year] = t.date.split('/');
+      if (!month || !year) return;
+      if (selectedYear !== 'all' && year !== selectedYear) return;
+      const monthYear = `${month}/${year}`;
       if (monthYear && monthYear.length === 7) months.add(monthYear);
     });
     return Array.from(months).sort((a, b) => {
@@ -31,12 +44,22 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
       const [m2, y2] = b.split('/').map(Number);
       return y2 !== y1 ? y2 - y1 : m2 - m1;
     });
-  }, [transactions]);
+  }, [transactions, selectedYear]);
+
+  useEffect(() => {
+    if (selectedMonth !== 'all' && !availableMonths.includes(selectedMonth)) {
+      setSelectedMonth('all');
+    }
+  }, [selectedMonth, availableMonths]);
 
   const filteredTransactions = useMemo(() => {
-    if (selectedMonth === 'all') return transactions;
-    return transactions.filter(t => t.date.slice(3) === selectedMonth);
-  }, [transactions, selectedMonth]);
+    return transactions.filter(t => {
+      const year = t.date.split('/')[2];
+      const matchesYear = selectedYear === 'all' || year === selectedYear;
+      const matchesMonth = selectedMonth === 'all' || t.date.slice(3) === selectedMonth;
+      return matchesYear && matchesMonth;
+    });
+  }, [transactions, selectedYear, selectedMonth]);
 
   const summary = useMemo(() => getFinancialSummary(filteredTransactions), [filteredTransactions]);
 
@@ -79,6 +102,18 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
   const savingsRate = summary.totalIncome > 0 
     ? ((summary.balance / summary.totalIncome) * 100).toFixed(1) 
     : '0';
+
+  const periodLabel = useMemo(() => {
+    if (selectedMonth !== 'all') return selectedMonth;
+    if (selectedYear !== 'all') return `Ano ${selectedYear}`;
+    return 'Histórico Total';
+  }, [selectedMonth, selectedYear]);
+
+  const periodSlug = useMemo(() => {
+    if (selectedMonth !== 'all') return selectedMonth.replace('/', '-');
+    if (selectedYear !== 'all') return `ano-${selectedYear}`;
+    return 'historico-total';
+  }, [selectedMonth, selectedYear]);
 
   const toggleExpand = (name: string) => {
     setExpandedDesc(expandedDesc === name ? null : name);
@@ -123,7 +158,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
       // Primeira página com cabeçalho extra
       pdf.setFontSize(10);
       pdf.setTextColor(100);
-      pdf.text(`Finanza Pro - Relatório Financeiro (${selectedMonth === 'all' ? 'Histórico Total' : selectedMonth})`, 10, 10);
+      pdf.text(`Finanza Pro - Relatório Financeiro (${periodLabel})`, 10, 10);
       pdf.text(`Exportado em: ${new Date().toLocaleString('pt-BR')}`, 10, 15);
       
       pdf.addImage(imgData, 'PNG', 0, 20, pdfWidth, imgHeightInMm);
@@ -137,7 +172,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
         heightLeft -= pdfHeight;
       }
 
-      pdf.save(`finanza-pro-relatorio-${selectedMonth.replace('/', '-')}.pdf`);
+      pdf.save(`finanza-pro-relatorio-${periodSlug}.pdf`);
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       alert("Erro ao gerar o PDF. Verifique os dados e tente novamente.");
@@ -163,7 +198,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
         <div className="flex items-center gap-4">
           <div>
             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-tight">Análise de Período</h2>
-            <p className="text-xs text-slate-500">Exibindo: <span className="font-bold text-indigo-600">{selectedMonth === 'all' ? 'Histórico Total' : selectedMonth}</span></p>
+            <p className="text-xs text-slate-500">Exibindo: <span className="font-bold text-indigo-600">{periodLabel}</span></p>
           </div>
           <button 
             id="pdf-export-btn"
@@ -181,6 +216,19 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
         </div>
         
         <div className="flex items-center gap-3">
+          <div className="relative">
+            <select 
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="w-full md:w-40 pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm font-bold text-slate-700 appearance-none cursor-pointer"
+            >
+              <option value="all">Todos os anos</option>
+              {availableYears.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+            <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+          </div>
           <div className="relative">
             <select 
               value={selectedMonth}
@@ -235,7 +283,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-base font-bold text-slate-800">Acumulado por Descrição</h3>
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Período: {selectedMonth === 'all' ? 'Total' : selectedMonth}</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Período: {periodLabel === 'Histórico Total' ? 'Total' : periodLabel}</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">

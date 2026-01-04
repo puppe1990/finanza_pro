@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, BarChart, Bar, Legend, LabelList, Dot
@@ -13,31 +13,52 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
+  const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    transactions.forEach(t => {
+      const year = t.date.split('/')[2];
+      if (year && year.length === 4) years.add(year);
+    });
+    return Array.from(years).sort((a, b) => Number(b) - Number(a));
+  }, [transactions]);
 
   const availableMonths = useMemo(() => {
     const months = new Set<string>();
     transactions.forEach(t => {
-      const monthYear = t.date.slice(3);
-      if (monthYear && monthYear.length === 7) months.add(monthYear);
+      const [day, month, year] = t.date.split('/');
+      if (!month || !year) return;
+      if (selectedYear !== 'all' && year !== selectedYear) return;
+      const monthYear = `${month}/${year}`;
+      if (monthYear.length === 7) months.add(monthYear);
     });
     return Array.from(months).sort((a, b) => {
       const [m1, y1] = a.split('/').map(Number);
       const [m2, y2] = b.split('/').map(Number);
       return y2 !== y1 ? y2 - y1 : m2 - m1;
     });
-  }, [transactions]);
+  }, [transactions, selectedYear]);
+
+  useEffect(() => {
+    if (selectedMonth !== 'all' && !availableMonths.includes(selectedMonth)) {
+      setSelectedMonth('all');
+    }
+  }, [selectedMonth, availableMonths]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
+      const year = t.date.split('/')[2];
+      const matchesYear = selectedYear === 'all' || year === selectedYear;
       const matchesMonth = selectedMonth === 'all' || t.date.slice(3) === selectedMonth;
       const matchesType = filterType === 'all' || 
                          (filterType === 'income' && t.amount > 0) || 
                          (filterType === 'expense' && t.amount < 0);
-      return matchesMonth && matchesType;
+      return matchesYear && matchesMonth && matchesType;
     });
-  }, [transactions, selectedMonth, filterType]);
+  }, [transactions, selectedYear, selectedMonth, filterType]);
 
   const summary = useMemo(() => getFinancialSummary(filteredTransactions), [filteredTransactions]);
 
@@ -137,6 +158,23 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            {/* Year Filter */}
+            <div className="relative flex-1 sm:flex-initial">
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="w-full sm:w-auto appearance-none bg-white border border-slate-300 rounded-xl px-4 py-2.5 pr-10 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer hover:border-slate-400 transition-colors"
+              >
+                <option value="all">Todos os anos</option>
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+              <i className="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            </div>
+
             {/* Month Filter */}
             <div className="relative flex-1 sm:flex-initial">
               <select
@@ -188,9 +226,20 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
         </div>
 
         {/* Active filters indicator */}
-        {(selectedMonth !== 'all' || filterType !== 'all') && (
+        {(selectedYear !== 'all' || selectedMonth !== 'all' || filterType !== 'all') && (
           <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 flex-wrap">
             <span className="text-xs text-slate-500 font-medium">Filtros ativos:</span>
+            {selectedYear !== 'all' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold">
+                Ano {selectedYear}
+                <button
+                  onClick={() => setSelectedYear('all')}
+                  className="hover:text-indigo-900"
+                >
+                  <i className="fa-solid fa-times text-[10px]"></i>
+                </button>
+              </span>
+            )}
             {selectedMonth !== 'all' && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold">
                 {(() => {
@@ -224,6 +273,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
             )}
             <button
               onClick={() => {
+                setSelectedYear('all');
                 setSelectedMonth('all');
                 setFilterType('all');
               }}
