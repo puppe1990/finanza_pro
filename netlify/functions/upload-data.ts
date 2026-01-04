@@ -40,31 +40,36 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
       };
     });
 
-    const batchSize = 200;
-    for (let i = 0; i < normalized.length; i += batchSize) {
-      const batch = normalized.slice(i, i + batchSize);
-      await sql.transaction(
-        batch.map(item => sql`
-          INSERT INTO transactions (
-            id,
-            upload_id,
-            date,
-            type,
-            description,
-            amount,
-            category
+    if (normalized.length > 0) {
+      const batchSize = 200;
+      for (let i = 0; i < normalized.length; i += batchSize) {
+        const batch = normalized.slice(i, i + batchSize);
+        // Fazer inserts em batch usando Promise.all para paralelismo
+        await Promise.all(
+          batch.map((item) =>
+            sql`
+              INSERT INTO transactions (
+                id,
+                upload_id,
+                date,
+                type,
+                description,
+                amount,
+                category
+              )
+              VALUES (
+                ${item.id},
+                ${item.uploadId},
+                ${item.date},
+                ${item.type},
+                ${item.description},
+                ${item.amount},
+                ${item.category}
+              )
+            `
           )
-          VALUES (
-            ${item.id},
-            ${item.uploadId},
-            ${item.date},
-            ${item.type},
-            ${item.description},
-            ${item.amount},
-            ${item.category}
-          );
-        `)
-      );
+        );
+      }
     }
 
     return jsonResponse(200, {
