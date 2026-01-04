@@ -1,8 +1,13 @@
 
 import React, { useRef, useState } from 'react';
 
+interface UploadedFile {
+  content: string;
+  filename: string;
+}
+
 interface UploadSectionProps {
-  onUpload: (content: string, filename: string) => void;
+  onUpload: (files: UploadedFile[]) => void;
   isLoading: boolean;
 }
 
@@ -10,20 +15,39 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onUpload, isLoading }) =>
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processFile(file);
+  const processFiles = (files: File[]) => {
+    const csvFiles = files.filter(file => file.name.toLowerCase().endsWith('.csv'));
+    if (!csvFiles.length) {
+      alert("Por favor, selecione arquivos CSV válidos.");
+      return;
     }
+
+    if (csvFiles.length !== files.length) {
+      alert("Alguns arquivos foram ignorados por não serem CSV.");
+    }
+
+    Promise.all(
+      csvFiles.map(file => (
+        new Promise<UploadedFile>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const content = event.target?.result as string;
+            resolve({ content, filename: file.name });
+          };
+          reader.readAsText(file);
+        })
+      ))
+    ).then(onUpload);
   };
 
-  const processFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      onUpload(content, file.name);
-    };
-    reader.readAsText(file);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length) {
+      processFiles(files);
+    }
+    if (e.target.value) {
+      e.target.value = '';
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -38,19 +62,19 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onUpload, isLoading }) =>
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.csv')) {
-      processFile(file);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length) {
+      processFiles(files);
     } else {
-      alert("Por favor, selecione um arquivo CSV válido.");
+      alert("Por favor, selecione arquivos CSV válidos.");
     }
   };
 
   return (
     <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm max-w-2xl mx-auto">
       <div className="text-center mb-10">
-        <h2 className="text-2xl font-bold text-slate-800">Importar Extrato</h2>
-        <p className="text-slate-500 mt-2">Arraste seu arquivo CSV ou clique para selecionar do seu computador.</p>
+        <h2 className="text-2xl font-bold text-slate-800">Importar Extratos</h2>
+        <p className="text-slate-500 mt-2">Arraste seus arquivos CSV ou clique para selecionar do seu computador.</p>
       </div>
 
       <div 
@@ -69,6 +93,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onUpload, isLoading }) =>
           ref={fileInputRef} 
           onChange={handleFileChange} 
           accept=".csv" 
+          multiple
           className="hidden" 
         />
         
@@ -83,8 +108,8 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onUpload, isLoading }) =>
               <i className="fa-solid fa-file-csv text-3xl text-slate-400 group-hover:text-indigo-500"></i>
             </div>
             <div className="space-y-1">
-              <p className="text-lg font-bold text-slate-800">Clique para fazer upload</p>
-              <p className="text-sm text-slate-400">Suporta arquivos .csv exportados do banco</p>
+              <p className="text-lg font-bold text-slate-800">Clique para adicionar arquivos</p>
+              <p className="text-sm text-slate-400">Suporta múltiplos .csv exportados do banco</p>
             </div>
           </>
         )}

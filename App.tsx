@@ -41,32 +41,39 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handleFileUpload = async (content: string, filename: string) => {
+  const handleFileUpload = async (files: { content: string; filename: string }[]) => {
     setIsLoading(true);
-    const parsed = parseCSV(content);
-    const now = new Date();
-    const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-
-    const newRecord: UploadRecord = {
-      id: Math.random().toString(36).substr(2, 9),
-      filename: filename,
-      timestamp: timestamp,
-      transactionCount: parsed.length,
-    };
+    const allTransactions: Transaction[] = [];
+    const newUploads: UploadRecord[] = [];
 
     try {
-      if (!dbUnavailable) {
-        await uploadData({
-          uploadId: newRecord.id,
-          filename: newRecord.filename,
-          timestamp: newRecord.timestamp,
-          transactions: parsed,
-        });
+      for (const file of files) {
+        const parsed = parseCSV(file.content);
+        const now = new Date();
+        const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+        const newRecord: UploadRecord = {
+          id: Math.random().toString(36).substr(2, 9),
+          filename: file.filename,
+          timestamp: timestamp,
+          transactionCount: parsed.length,
+        };
+
+        if (!dbUnavailable) {
+          await uploadData({
+            uploadId: newRecord.id,
+            filename: newRecord.filename,
+            timestamp: newRecord.timestamp,
+            transactions: parsed,
+          });
+        }
+
+        allTransactions.push(...parsed);
+        newUploads.push(newRecord);
       }
 
-      setTransactions(prev => [...prev, ...parsed]);
-      setUploads(prev => [newRecord, ...prev]);
-      setLastUploadTime(now.toLocaleTimeString());
+      setTransactions(prev => [...prev, ...allTransactions]);
+      setUploads(prev => [...newUploads, ...prev]);
+      setLastUploadTime(new Date().toLocaleTimeString());
       setView(ViewMode.DASHBOARD);
     } catch (error) {
       console.error('Failed to save upload.', error);
