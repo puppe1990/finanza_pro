@@ -25,7 +25,8 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     `;
 
     for (const transaction of transactions) {
-      const transactionId = transaction?.id || randomUUID();
+      const rawId = transaction?.id ? String(transaction.id) : null;
+      const transactionId = rawId ? `${uploadId}-${rawId}` : randomUUID();
       await sql`
         INSERT INTO transactions (
           id,
