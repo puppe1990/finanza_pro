@@ -59,6 +59,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     });
   } catch (error) {
     console.error('upload-data error', error);
-    return jsonResponse(500, { error: 'Failed to save data.' });
+    const message = error instanceof Error ? error.message : String(error);
+    return jsonResponse(500, { error: 'Failed to save data.', detail: message });
   }
 };

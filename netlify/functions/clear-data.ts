@@ -11,6 +11,7 @@ export const handler = async (event: { httpMethod?: string }) => {
     return jsonResponse(200, { ok: true });
   } catch (error) {
     console.error('clear-data error', error);
-    return jsonResponse(500, { error: 'Failed to clear data.' });
+    const message = error instanceof Error ? error.message : String(error);
+    return jsonResponse(500, { error: 'Failed to clear data.', detail: message });
   }
 };

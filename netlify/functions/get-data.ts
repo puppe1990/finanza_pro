@@ -29,6 +29,7 @@ export const handler = async () => {
     return jsonResponse(200, { uploads, transactions });
   } catch (error) {
     console.error('get-data error', error);
-    return jsonResponse(500, { error: 'Failed to load data.' });
+    const message = error instanceof Error ? error.message : String(error);
+    return jsonResponse(500, { error: 'Failed to load data.', detail: message });
   }
 };

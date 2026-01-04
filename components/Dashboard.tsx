@@ -99,7 +99,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
         <div className="lg:col-span-2 bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm">
           <h3 className="text-base font-bold text-slate-800 mb-6">Fluxo Financeiro</h3>
           <div className="h-64 md:h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
@@ -123,7 +123,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
         <div className="bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm">
           <h3 className="text-base font-bold text-slate-800 mb-6">Por Categoria</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
               <PieChart>
                 <Pie
                   data={categoryData}

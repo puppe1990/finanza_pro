@@ -322,7 +322,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
               Composição de Fluxo
             </h3>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                 <BarChart data={comparisonData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} stroke="#64748b" />
@@ -342,7 +342,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
               Distribuição por Categoria
             </h3>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                 <BarChart data={categoryData.slice(0, 6)} layout="vertical" margin={{ left: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                   <XAxis type="number" hide />

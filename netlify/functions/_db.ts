@@ -1,6 +1,21 @@
 import { neon } from '@netlify/neon';
 
-const sql = neon();
+type SqlTag = ReturnType<typeof neon>;
+
+let sqlClient: SqlTag | null = null;
+
+const getSqlClient = () => {
+  if (sqlClient) return sqlClient;
+  const url = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('Missing NETLIFY_DATABASE_URL environment variable.');
+  }
+  sqlClient = neon(url);
+  return sqlClient;
+};
+
+const sql: SqlTag = ((strings: TemplateStringsArray, ...values: unknown[]) =>
+  getSqlClient()(strings, ...values)) as SqlTag;
 
 export const ensureSchema = async () => {
   await sql`
