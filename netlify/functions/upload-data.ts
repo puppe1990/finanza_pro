@@ -19,20 +19,16 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     const timestamp = typeof payload.timestamp === 'string' ? payload.timestamp : new Date().toISOString();
     const transactions = Array.isArray(payload.transactions) ? payload.transactions : [];
 
-    await sql`
-      INSERT INTO uploads (id, filename, timestamp, transaction_count)
-      VALUES (${uploadId}, ${filename}, ${timestamp}, ${transactions.length})
-      ON CONFLICT (id) DO NOTHING;
-    `;
-
     const normalized = transactions.map((transaction: Record<string, unknown>) => {
-      const rawId = transaction?.id ? String(transaction.id) : null;
-      const transactionId = rawId ? `${uploadId}-${rawId}` : randomUUID();
+      const rawId = transaction?.id ? String(transaction.id).trim() : '';
+      const sourceId = rawId || null;
+      const transactionId = sourceId ? `${uploadId}-${sourceId}` : randomUUID();
       const amount = Number(transaction?.amount);
 
       return {
         id: transactionId,
         uploadId,
+        sourceId,
         date: typeof transaction?.date === 'string' ? transaction.date : '',
         type: typeof transaction?.type === 'string' ? transaction.type : '',
         description: typeof transaction?.description === 'string' ? transaction.description : '',
@@ -41,10 +37,37 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
       };
     });
 
-    if (normalized.length > 0) {
+    const seenSourceIds = new Set<string>();
+    const uniqueNormalized = normalized.filter((item) => {
+      if (!item.sourceId) return true;
+      if (seenSourceIds.has(item.sourceId)) return false;
+      seenSourceIds.add(item.sourceId);
+      return true;
+    });
+
+    const sourceIds = uniqueNormalized
+      .map((item) => item.sourceId)
+      .filter((id): id is string => Boolean(id));
+
+    const existingRows = sourceIds.length
+      ? await sql`SELECT source_id FROM transactions WHERE source_id = ANY(${sourceIds})`
+      : [];
+    const existingSourceIds = new Set(existingRows.map((row) => row.source_id as string));
+
+    const insertable = uniqueNormalized.filter(
+      (item) => !item.sourceId || !existingSourceIds.has(item.sourceId)
+    );
+
+    await sql`
+      INSERT INTO uploads (id, filename, timestamp, transaction_count)
+      VALUES (${uploadId}, ${filename}, ${timestamp}, ${insertable.length})
+      ON CONFLICT (id) DO NOTHING;
+    `;
+
+    if (insertable.length > 0) {
       const batchSize = 200;
-      for (let i = 0; i < normalized.length; i += batchSize) {
-        const batch = normalized.slice(i, i + batchSize);
+      for (let i = 0; i < insertable.length; i += batchSize) {
+        const batch = insertable.slice(i, i + batchSize);
         // Fazer inserts em batch usando Promise.all para paralelismo
         await Promise.all(
           batch.map((item) =>
@@ -52,6 +75,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
               INSERT INTO transactions (
                 id,
                 upload_id,
+                source_id,
                 date,
                 type,
                 description,
@@ -61,6 +85,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
               VALUES (
                 ${item.id},
                 ${item.uploadId},
+                ${item.sourceId},
                 ${item.date},
                 ${item.type},
                 ${item.description},
@@ -74,13 +99,20 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
       }
     }
 
+    const receivedCount = transactions.length;
+    const insertedCount = insertable.length;
+    const skippedDuplicates = Math.max(0, receivedCount - insertedCount);
+
     return jsonResponse(200, {
       upload: {
         id: uploadId,
         filename,
         timestamp,
-        transactionCount: transactions.length,
+        transactionCount: insertedCount,
       },
+      receivedCount,
+      insertedCount,
+      skippedDuplicates,
     });
   } catch (error) {
     console.error('upload-data error', error);

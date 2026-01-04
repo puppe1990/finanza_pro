@@ -40,7 +40,12 @@ export const uploadData = async (payload: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleJson<{ upload: UploadRecord }>(response);
+  return handleJson<{
+    upload: UploadRecord;
+    receivedCount: number;
+    insertedCount: number;
+    skippedDuplicates: number;
+  }>(response);
 };
 
 export const clearData = async () => {

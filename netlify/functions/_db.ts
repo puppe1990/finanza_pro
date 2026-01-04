@@ -32,6 +32,7 @@ export const ensureSchema = async () => {
     CREATE TABLE IF NOT EXISTS transactions (
       id TEXT PRIMARY KEY,
       upload_id TEXT REFERENCES uploads(id) ON DELETE CASCADE,
+      source_id TEXT,
       date TEXT,
       type TEXT,
       description TEXT,
@@ -42,8 +43,24 @@ export const ensureSchema = async () => {
   `;
 
   await sql`
+    ALTER TABLE transactions
+    ADD COLUMN IF NOT EXISTS source_id TEXT;
+  `;
+
+  await sql`
+    UPDATE transactions
+    SET source_id = RIGHT(id, 36)
+    WHERE source_id IS NULL AND length(id) >= 36;
+  `;
+
+  await sql`
     CREATE INDEX IF NOT EXISTS transactions_upload_id_idx
     ON transactions(upload_id);
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS transactions_source_id_idx
+    ON transactions(source_id);
   `;
 };
 

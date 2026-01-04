@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastUploadTime, setLastUploadTime] = useState<string | null>(null);
   const [dbUnavailable, setDbUnavailable] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
 
   // Determine current view from location
   const getCurrentView = (): ViewMode => {
@@ -60,8 +61,12 @@ const App: React.FC = () => {
     setIsLoading(true);
     const allTransactions: Transaction[] = [];
     const newUploads: UploadRecord[] = [];
+    let totalSkipped = 0;
 
     try {
+      const existingIds = new Set(transactions.map((t) => t.id));
+      const seenIds = new Set<string>();
+
       for (const file of files) {
         const parsed = parseCSV(file.content);
         const now = new Date();
@@ -74,20 +79,47 @@ const App: React.FC = () => {
         };
 
         if (!dbUnavailable) {
-          await uploadData({
+          const response = await uploadData({
             uploadId: newRecord.id,
             filename: newRecord.filename,
             timestamp: newRecord.timestamp,
             transactions: parsed,
           });
+          newRecord.transactionCount = response.upload.transactionCount;
+          totalSkipped += response.skippedDuplicates;
+        } else {
+          const deduped = parsed.filter((transaction) => {
+            const id = transaction.id;
+            if (!id) return true;
+            if (existingIds.has(id) || seenIds.has(id)) return false;
+            seenIds.add(id);
+            return true;
+          });
+          totalSkipped += parsed.length - deduped.length;
+          parsed.length = 0;
+          parsed.push(...deduped);
+          newRecord.transactionCount = deduped.length;
         }
 
         allTransactions.push(...parsed);
         newUploads.push(newRecord);
       }
 
-      setTransactions(prev => [...prev, ...allTransactions]);
-      setUploads(prev => [...newUploads, ...prev]);
+      if (!dbUnavailable) {
+        const data = await fetchData();
+        setTransactions(data.transactions || []);
+        setUploads(data.uploads || []);
+      } else {
+        setTransactions(prev => [...prev, ...allTransactions]);
+        setUploads(prev => [...newUploads, ...prev]);
+      }
+
+      if (totalSkipped > 0) {
+        const filesLabel = files.length === 1 ? 'arquivo' : 'arquivos';
+        setUploadNotice(`Ignoramos ${totalSkipped} transações duplicadas no upload de ${files.length} ${filesLabel}.`);
+      } else {
+        setUploadNotice(null);
+      }
       setLastUploadTime(new Date().toLocaleTimeString());
       navigate('/dashboard');
     } catch (error) {
@@ -161,6 +193,20 @@ const App: React.FC = () => {
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 pb-24 md:pb-8">
           <div className="max-w-7xl mx-auto">
+            {uploadNotice && (
+              <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 text-sm font-semibold">
+                  <i className="fa-solid fa-circle-exclamation text-amber-600"></i>
+                  <span>{uploadNotice}</span>
+                </div>
+                <button
+                  onClick={() => setUploadNotice(null)}
+                  className="text-amber-700 hover:text-amber-900 text-xs font-bold"
+                >
+                  Fechar
+                </button>
+              </div>
+            )}
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard transactions={transactions} />} />
