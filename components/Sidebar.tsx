@@ -43,16 +43,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setView }) => {
           ))}
         </nav>
       </div>
-
-      <div className="mt-auto p-8">
-        <div className="bg-slate-800 rounded-2xl p-4 border border-slate-700">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Upgrade</p>
-          <p className="text-sm text-slate-300 mb-4">Tenha acesso a inteligência preditiva ilimitada.</p>
-          <button className="w-full py-2 bg-indigo-500 hover:bg-indigo-400 rounded-lg text-sm font-bold transition-colors">
-            Versão Pro
-          </button>
-        </div>
-      </div>
     </aside>
   );
 };
