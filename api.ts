@@ -3,10 +3,25 @@ import { Transaction, UploadRecord } from './types';
 const FUNCTIONS_BASE = '/.netlify/functions';
 
 const handleJson = async <T>(response: Response): Promise<T> => {
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+  const text = await response.text();
+  let data: any = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
   }
-  return response.json() as Promise<T>;
+
+  if (!response.ok) {
+    const message =
+      data?.detail ||
+      data?.error ||
+      `Request failed: ${response.status}`;
+    throw new Error(message);
+  }
+
+  return data as T;
 };
 
 export const fetchData = async () => {

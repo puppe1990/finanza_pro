@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { Transaction } from '../types';
 import { getFinancialSummary, formatCurrency } from '../utils';
+import ChartShell from './ChartShell';
 
 interface DashboardProps {
   transactions: Transaction[];
@@ -98,7 +99,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         <div className="lg:col-span-2 bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm">
           <h3 className="text-base font-bold text-slate-800 mb-6">Fluxo Financeiro</h3>
-          <div className="h-64 md:h-80 w-full">
+          <ChartShell className="h-64 md:h-80 w-full min-h-[200px]">
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
               <AreaChart data={chartData}>
                 <defs>
@@ -117,12 +118,12 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
                 <Area type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorAmount)" />
               </AreaChart>
             </ResponsiveContainer>
-          </div>
+          </ChartShell>
         </div>
 
         <div className="bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm">
           <h3 className="text-base font-bold text-slate-800 mb-6">Por Categoria</h3>
-          <div className="h-56 w-full">
+          <ChartShell className="h-56 w-full min-h-[200px]">
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
               <PieChart>
                 <Pie
@@ -141,7 +142,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
                 <Tooltip formatter={(value: number) => formatCurrency(value)} />
               </PieChart>
             </ResponsiveContainer>
-          </div>
+          </ChartShell>
           <div className="mt-4 space-y-1">
             {categoryData.slice(0, 3).map((item, idx) => (
               <div key={item.name} className="flex items-center justify-between text-xs">

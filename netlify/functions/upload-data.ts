@@ -24,29 +24,47 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
       VALUES (${uploadId}, ${filename}, ${timestamp}, ${transactions.length});
     `;
 
-    for (const transaction of transactions) {
+    const normalized = transactions.map((transaction: Record<string, unknown>) => {
       const rawId = transaction?.id ? String(transaction.id) : null;
       const transactionId = rawId ? `${uploadId}-${rawId}` : randomUUID();
-      await sql`
-        INSERT INTO transactions (
-          id,
-          upload_id,
-          date,
-          type,
-          description,
-          amount,
-          category
-        )
-        VALUES (
-          ${transactionId},
-          ${uploadId},
-          ${transaction.date},
-          ${transaction.type},
-          ${transaction.description},
-          ${transaction.amount},
-          ${transaction.category}
-        );
-      `;
+      const amount = Number(transaction?.amount);
+
+      return {
+        id: transactionId,
+        uploadId,
+        date: typeof transaction?.date === 'string' ? transaction.date : '',
+        type: typeof transaction?.type === 'string' ? transaction.type : '',
+        description: typeof transaction?.description === 'string' ? transaction.description : '',
+        amount: Number.isFinite(amount) ? amount : 0,
+        category: typeof transaction?.category === 'string' ? transaction.category : '',
+      };
+    });
+
+    const batchSize = 200;
+    for (let i = 0; i < normalized.length; i += batchSize) {
+      const batch = normalized.slice(i, i + batchSize);
+      await sql.transaction(
+        batch.map(item => sql`
+          INSERT INTO transactions (
+            id,
+            upload_id,
+            date,
+            type,
+            description,
+            amount,
+            category
+          )
+          VALUES (
+            ${item.id},
+            ${item.uploadId},
+            ${item.date},
+            ${item.type},
+            ${item.description},
+            ${item.amount},
+            ${item.category}
+          );
+        `)
+      );
     }
 
     return jsonResponse(200, {

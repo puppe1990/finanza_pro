@@ -8,6 +8,7 @@ import { Transaction } from '../types';
 import { formatCurrency, getFinancialSummary } from '../utils';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import ChartShell from './ChartShell';
 
 interface ReportsViewProps {
   transactions: Transaction[];
@@ -321,7 +322,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
               <i className="fa-solid fa-scale-balanced text-indigo-500"></i>
               Composição de Fluxo
             </h3>
-            <div className="h-64">
+            <ChartShell className="h-64 w-full min-h-[200px]">
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                 <BarChart data={comparisonData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -333,7 +334,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </div>
+            </ChartShell>
           </div>
 
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -341,7 +342,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
               <i className="fa-solid fa-layer-group text-indigo-500"></i>
               Distribuição por Categoria
             </h3>
-            <div className="h-64">
+            <ChartShell className="h-64 w-full min-h-[200px]">
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                 <BarChart data={categoryData.slice(0, 6)} layout="vertical" margin={{ left: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
@@ -351,7 +352,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ transactions }) => {
                   <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            </div>
+            </ChartShell>
           </div>
         </div>
       </div>
