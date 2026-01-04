@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { ensureSchema, jsonResponse, sql } from './_db';
 
 export const handler = async (event: { httpMethod?: string; body?: string }) => {
@@ -13,9 +14,9 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
       return jsonResponse(400, { error: 'Missing payload.' });
     }
 
-    const uploadId = payload.uploadId || crypto.randomUUID();
-    const filename = payload.filename || 'arquivo.csv';
-    const timestamp = payload.timestamp || new Date().toISOString();
+    const uploadId = payload.uploadId || randomUUID();
+    const filename = typeof payload.filename === 'string' ? payload.filename : 'arquivo.csv';
+    const timestamp = typeof payload.timestamp === 'string' ? payload.timestamp : new Date().toISOString();
     const transactions = Array.isArray(payload.transactions) ? payload.transactions : [];
 
     await sql`
@@ -24,6 +25,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     `;
 
     for (const transaction of transactions) {
+      const transactionId = transaction?.id || randomUUID();
       await sql`
         INSERT INTO transactions (
           id,
@@ -35,7 +37,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
           category
         )
         VALUES (
-          ${transaction.id},
+          ${transactionId},
           ${uploadId},
           ${transaction.date},
           ${transaction.type},
