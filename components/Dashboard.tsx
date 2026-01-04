@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, BarChart, Bar, Legend, LabelList, Dot
@@ -13,11 +13,37 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
-  const summary = useMemo(() => getFinancialSummary(transactions), [transactions]);
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    transactions.forEach(t => {
+      const monthYear = t.date.slice(3);
+      if (monthYear && monthYear.length === 7) months.add(monthYear);
+    });
+    return Array.from(months).sort((a, b) => {
+      const [m1, y1] = a.split('/').map(Number);
+      const [m2, y2] = b.split('/').map(Number);
+      return y2 !== y1 ? y2 - y1 : m2 - m1;
+    });
+  }, [transactions]);
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      const matchesMonth = selectedMonth === 'all' || t.date.slice(3) === selectedMonth;
+      const matchesType = filterType === 'all' || 
+                         (filterType === 'income' && t.amount > 0) || 
+                         (filterType === 'expense' && t.amount < 0);
+      return matchesMonth && matchesType;
+    });
+  }, [transactions, selectedMonth, filterType]);
+
+  const summary = useMemo(() => getFinancialSummary(filteredTransactions), [filteredTransactions]);
 
   const chartData = useMemo(() => {
     const groups: { [key: string]: number } = {};
-    transactions.forEach(t => {
+    filteredTransactions.forEach(t => {
       const date = t.date;
       groups[date] = (groups[date] || 0) + t.amount;
     });
@@ -28,11 +54,11 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
         const [d2, m2, y2] = b.date.split('/');
         return new Date(`${y1}-${m1}-${d1}`).getTime() - new Date(`${y2}-${m2}-${d2}`).getTime();
       });
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   const categoryData = useMemo(() => {
     const categories: { [key: string]: number } = {};
-    transactions.filter(t => t.amount < 0).forEach(t => {
+    filteredTransactions.filter(t => t.amount < 0).forEach(t => {
       categories[t.category] = (categories[t.category] || 0) + Math.abs(t.amount);
     });
     const total = Object.values(categories).reduce((sum, val) => sum + val, 0);
@@ -43,7 +69,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
         percentage: total > 0 ? ((value / total) * 100).toFixed(1) : 0
       }))
       .sort((a, b) => b.value - a.value);
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#a855f7'];
 
@@ -102,6 +128,114 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* Filters Section */}
+      <div className="bg-white p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-filter text-indigo-500 text-sm"></i>
+            <span className="text-sm font-semibold text-slate-700">Filtros</span>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            {/* Month Filter */}
+            <div className="relative flex-1 sm:flex-initial">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-full sm:w-auto appearance-none bg-white border border-slate-300 rounded-xl px-4 py-2.5 pr-10 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer hover:border-slate-400 transition-colors"
+              >
+                <option value="all">Todos os períodos</option>
+                {availableMonths.map((month) => {
+                  const [m, y] = month.split('/').map(Number);
+                  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                                     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+                  return (
+                    <option key={month} value={month}>
+                      {monthNames[m - 1]} {y}
+                    </option>
+                  );
+                })}
+              </select>
+              <i className="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            </div>
+
+            {/* Type Filter */}
+            <div className="flex items-center gap-2">
+              {[
+                { id: 'all', label: 'Todos', icon: 'fa-list' },
+                { id: 'income', label: 'Receitas', icon: 'fa-arrow-up' },
+                { id: 'expense', label: 'Despesas', icon: 'fa-arrow-down' }
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setFilterType(f.id as 'all' | 'income' | 'expense')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap border ${
+                    filterType === f.id
+                      ? f.id === 'all'
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                        : f.id === 'income'
+                        ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                        : 'bg-red-600 border-red-600 text-white shadow-sm'
+                      : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50 hover:border-slate-400'
+                  }`}
+                >
+                  <i className={`fa-solid ${f.icon} text-xs`}></i>
+                  <span>{f.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Active filters indicator */}
+        {(selectedMonth !== 'all' || filterType !== 'all') && (
+          <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-slate-500 font-medium">Filtros ativos:</span>
+            {selectedMonth !== 'all' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold">
+                {(() => {
+                  const [m, y] = selectedMonth.split('/').map(Number);
+                  const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                                     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                  return `${monthNames[m - 1]} ${y}`;
+                })()}
+                <button
+                  onClick={() => setSelectedMonth('all')}
+                  className="hover:text-indigo-900"
+                >
+                  <i className="fa-solid fa-times text-[10px]"></i>
+                </button>
+              </span>
+            )}
+            {filterType !== 'all' && (
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                filterType === 'income' 
+                  ? 'bg-green-50 text-green-700'
+                  : 'bg-red-50 text-red-700'
+              }`}>
+                {filterType === 'income' ? 'Receitas' : 'Despesas'}
+                <button
+                  onClick={() => setFilterType('all')}
+                  className="hover:opacity-75"
+                >
+                  <i className="fa-solid fa-times text-[10px]"></i>
+                </button>
+              </span>
+            )}
+            <button
+              onClick={() => {
+                setSelectedMonth('all');
+                setFilterType('all');
+              }}
+              className="ml-auto text-xs text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1"
+            >
+              <i className="fa-solid fa-xmark text-xs"></i>
+              Limpar tudo
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Stat Cards - Stacked on mobile */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <div className="bg-white p-5 rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
